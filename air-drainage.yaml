@@ -1,0 +1,117 @@
+esphome:
+  name: air-drainage
+  friendly_name: Air-Drainage
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ""
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Air-Drainage Fallback Hotspot"
+    password: "2vcMQpCIXONW"
+
+captive_portal:
+    
+uart:
+  rx_pin: GPIO20
+  tx_pin: GPIO21
+  baud_rate: 9600
+
+tuya:
+
+switch:
+  - platform: "tuya"
+    name: "Вкл/выкл Осушителя"
+    switch_datapoint: 1
+
+  - platform: "tuya"
+    name: "Блокировка от детей"
+    switch_datapoint: 16
+
+# Настройка желаемой влажности
+number:
+  - platform: "tuya"
+    name: "Заданная влажность"
+    id: target_humidity_number
+    number_datapoint: 2
+    min_value: 20
+    max_value: 80
+    step: 20
+    on_value:
+      then:
+        - lambda: |-
+            int current = (int)x;
+            id(humidity_select).publish_state(std::to_string(current));
+
+select:
+  - platform: template
+    name: "Выбор влажности"
+    id: humidity_select
+    options:
+      - "20"
+      - "40"
+      - "60"
+      - "80"
+    optimistic: true
+    set_action:
+      then:
+        - lambda: |-
+            int value = atoi(x.c_str());
+            id(target_humidity_number).make_call().set_value(value).perform();
+
+  - platform: "tuya"
+    name: "Скорость вентилятора"
+    enum_datapoint: 4
+    options:
+      2: "Sleep"
+      1: "Low"
+      0: "High"
+
+  - platform: "tuya"
+    name: "Таймер"
+    enum_datapoint: 17
+    options:
+      0: "cancel"
+      1: "2h"
+      2: "4h"
+      3: "8h"
+
+# Текущая влажность
+sensor:
+  - platform: "tuya"
+    name: "Текущая влажность"
+    sensor_datapoint: 6
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+
+# Оставшееся время
+  - platform: "tuya"
+    name: "Оставшееся время (ч)"
+    sensor_datapoint: 18
+    unit_of_measurement: "ч"
+    accuracy_decimals: 0
+
+# Бинарный датчик (например, резервуар воды полон)
+binary_sensor:
+  - platform: "tuya"
+    name: "Состояние резервуара"
+    sensor_datapoint: 19
+    device_class: problem
